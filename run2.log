@@ -1,0 +1,144 @@
+[ingest] loading...
+[ingest] CEAS_08.csv: +39153 rows (cols=['sender', 'receiver', 'date', 'subject', 'body', 'label', 'urls', 'raw_email']) [text_col='raw_email' present=True, url_col='urls' present=True, label_col='label' present=True, dropped_label=0, dropped_empty=0]
+[ingest] Phishing_Email.csv: +18646 rows (cols=['Unnamed: 0', 'Email Text', 'Email Type', 'raw_email']) [text_col='raw_email' present=True, url_col=None present=False, label_col='Email Type' present=True, dropped_label=2049, dropped_empty=3]
+[ingest] malicious_phish.csv: +60309 rows (cols=['url', 'type']) [text_col=None present=False, url_col='url' present=True, label_col='type' present=True, dropped_label=0, dropped_empty=461905]
+[ingest] total rows after dedupe: 110094
+[ingest] label counts: {0: 62665, 1: 47429}
+[ingest] by-source counts: {'malicious_phish.csv': 60288, 'CEAS_08.csv': 32897, 'Phishing_Email.csv': 16909}
+[ingest] % non-empty raw_email by source: {'CEAS_08.csv': 1.0, 'Phishing_Email.csv': 1.0, 'malicious_phish.csv': 0.0}
+[ingest] capped per-source rows at 30000 -> total: 76909
+[ingest] by-source after cap: {'CEAS_08.csv': 30000, 'malicious_phish.csv': 30000, 'Phishing_Email.csv': 16909}
+                                           raw_email  ...       source
+0  \n\n\nCNN Alerts: My Custom Alert\n\n\n\n\n\n\...  ...  CEAS_08.csv
+1  \nLove is like heaven, but it can hurt like he...  ...  CEAS_08.csv
+
+[2 rows x 4 columns]
+
+[A] GroupKFold by first host (5-fold)
+  AUCs: [0.9951, 0.9901, 0.9956, 0.9901, 0.991]  mean=0.9924
+
+[B] Random-label sanity (expect ~0.50 AUC)
+  Shuffled-label AUC=0.4979
+
+[C] Ablation
+  url_only  AUC=0.9973
+  text_only AUC=0.5000
+
+[D] Cross-source matrix
+  train=CEAS_08.csv                test=Phishing_Email.csv         AUC=0.7146
+  train=CEAS_08.csv                test=malicious_phish.csv        AUC=0.7165
+  train=Phishing_Email.csv         test=CEAS_08.csv                AUC=0.8689
+  train=Phishing_Email.csv         test=malicious_phish.csv        AUC=0.6176
+  train=malicious_phish.csv        test=CEAS_08.csv                AUC=0.5407
+  train=malicious_phish.csv        test=Phishing_Email.csv         AUC=0.3986
+[ingest] loading...
+[ingest] CEAS_08.csv: +39153 rows (cols=['sender', 'receiver', 'date', 'subject', 'body', 'label', 'urls', 'raw_email']) [text_col='raw_email' present=True, url_col='urls' present=True, label_col='label' present=True, dropped_label=0, dropped_empty=0]
+[ingest] Phishing_Email.csv: +18646 rows (cols=['Unnamed: 0', 'Email Text', 'Email Type', 'raw_email']) [text_col='raw_email' present=True, url_col=None present=False, label_col='Email Type' present=True, dropped_label=2049, dropped_empty=3]
+[ingest] malicious_phish.csv: +60309 rows (cols=['url', 'type']) [text_col=None present=False, url_col='url' present=True, label_col='type' present=True, dropped_label=0, dropped_empty=461905]
+[ingest] total rows after dedupe: 110094
+[ingest] label counts: {0: 62665, 1: 47429}
+[ingest] by-source counts: {'malicious_phish.csv': 60288, 'CEAS_08.csv': 32897, 'Phishing_Email.csv': 16909}
+[ingest] % non-empty raw_email by source: {'CEAS_08.csv': 1.0, 'Phishing_Email.csv': 1.0, 'malicious_phish.csv': 0.0}
+[ingest] capped per-source rows at 30000 -> total: 76909
+[ingest] by-source after cap: {'CEAS_08.csv': 30000, 'malicious_phish.csv': 30000, 'Phishing_Email.csv': 16909}
+                                           raw_email  ...       source
+0  \n\n\nCNN Alerts: My Custom Alert\n\n\n\n\n\n\...  ...  CEAS_08.csv
+1  \nLove is like heaven, but it can hurt like he...  ...  CEAS_08.csv
+
+[2 rows x 4 columns]
+
+[A] GroupKFold by first host (5-fold)
+  AUCs: [0.9965, 0.9944, 0.9971, 0.9934, 0.9943]  mean=0.9951
+
+[B] Random-label sanity (expect ~0.50 AUC)
+  Shuffled-label AUC=0.5045
+
+[C] Ablation
+  url_only  AUC=0.9970
+  text_only AUC=0.5000
+
+[D] Cross-source matrix
+  train=CEAS_08.csv                test=Phishing_Email.csv         AUC=0.7881
+  train=CEAS_08.csv                test=malicious_phish.csv        AUC=0.7707
+  train=Phishing_Email.csv         test=CEAS_08.csv                AUC=0.9373
+  train=Phishing_Email.csv         test=malicious_phish.csv        AUC=0.7799
+  train=malicious_phish.csv        test=CEAS_08.csv                AUC=0.5312
+  train=malicious_phish.csv        test=Phishing_Email.csv         AUC=0.3999
+[ingest] loading...
+[ingest] CEAS_08.csv: +39153 rows (cols=['sender', 'receiver', 'date', 'subject', 'body', 'label', 'urls', 'raw_email']) [text_col='raw_email' present=True, url_col='urls' present=True, label_col='label' present=True, dropped_label=0, dropped_empty=0]
+[ingest] Phishing_Email.csv: +18646 rows (cols=['Unnamed: 0', 'Email Text', 'Email Type', 'raw_email']) [text_col='raw_email' present=True, url_col=None present=False, label_col='Email Type' present=True, dropped_label=2049, dropped_empty=3]
+[ingest] malicious_phish.csv: +60309 rows (cols=['url', 'type']) [text_col=None present=False, url_col='url' present=True, label_col='type' present=True, dropped_label=0, dropped_empty=461905]
+[ingest] total rows after dedupe: 110094
+[ingest] label counts: {0: 62665, 1: 47429}
+[ingest] by-source counts: {'malicious_phish.csv': 60288, 'CEAS_08.csv': 32897, 'Phishing_Email.csv': 16909}
+[ingest] % non-empty raw_email by source: {'CEAS_08.csv': 1.0, 'Phishing_Email.csv': 1.0, 'malicious_phish.csv': 0.0}
+[ingest] capped per-source rows at 30000 -> total: 76909
+[ingest] by-source after cap: {'CEAS_08.csv': 30000, 'malicious_phish.csv': 30000, 'Phishing_Email.csv': 16909}
+                                           raw_email  ...       source
+0  \n\n\nCNN Alerts: My Custom Alert\n\n\n\n\n\n\...  ...  CEAS_08.csv
+1  \nLove is like heaven, but it can hurt like he...  ...  CEAS_08.csv
+
+[2 rows x 4 columns]
+
+[A] GroupKFold by first host (5-fold)
+  AUCs: [0.9978, 0.9924, 0.9975, 0.9947, 0.9959]  mean=0.9957
+
+[B] Random-label sanity (expect ~0.50 AUC)
+  Shuffled-label AUC=0.4940
+
+[C] Ablation
+
+[C] Ablation
+  url_only  AUC=0.9970
+    ↳ false positives (count=59), showing up to 5:
+      • score=0.649  source=malicious_phish.csv  url=http://steamcommunity.com/app/440/discussions/0/620713633843193068/%22http://store.steampowered.com/curators/%22  text=''
+      • score=0.533  source=malicious_phish.csv  url=https://quizlet.com/sign-up?redir=https%3A%2F%2Fquizlet.com%2Flogin%3Fredir%3Dhttps%253A%252F%252Fquizlet.com%252Flogin%253Fredir%253Dhttps%25253A%25252F%25252Fquizlet.com%25252F  text=''
+      • score=0.501  source=malicious_phish.csv  url=http://giphy.com/services/oembed/?url=http://media.giphy.com/media/U2sRHJWyehtPq/giphy.gif  text=''
+      • score=0.774  source=malicious_phish.csv  url=https://instagram.com/accounts/login/?force_classic_login=&next=/oauth/authorize%3Fclient_id%3Dd9494686198d4dfeb954979a3e270e5e%26redirect_uri%3Dhttp%253A%252F%252Ficonosquare.com%253FredAftLog%253Dhttp%25253A%25252F%25252Ficonosquare.com%25252Ficonosquare%25253FactionFollow%25253D1%26response_type%3Dcode%26scope%3Dlikes%2Bcomments%2Brelationships  text=''
+      • score=0.754  source=malicious_phish.csv  url=http://bestblackhatforum.com/Forum-Announcements-And-Updates&datecut=0&sortby=views&order=desc  text=''
+  text_only AUC=0.5000
+    ↳ false positives (count=0), showing up to 5:
+
+[D] Cross-source matrix
+  train=CEAS_08.csv                test=Phishing_Email.csv         AUC=0.8473
+    ↳ false positives on Phishing_Email.csv (count=777), showing up to 5:
+      • score=0.612  url=  text='most up to date one - with molly & jermey on it - - - - - - - - - - - - - - - - - - - - - - forwarded by barry pearce /'
+      • score=0.832  url=http://argote.ch/  text='Working too hard...Someone tell me a joke, or email me a beer or something...TIA,   Rob.      .-.                    Rob'
+      • score=0.973  url=  text='mariner - door step attached is a preliminary assessment of mariner based upon our april 6 review'
+      • score=0.783  url=  text='ft . pierce ozzie : as a follow up to our phone conversation , how about scheduling the ft . pierce project review meeti'
+      • score=0.564  url=  text='Forwarded-by: FlowerDid you know that you can tell from the skin whether a person is sexually active or not?1. Sex is a'
+  train=CEAS_08.csv                test=malicious_phish.csv        AUC=0.6000
+    ↳ false positives on malicious_phish.csv (count=507), showing up to 5:
+      • score=0.530  url=http://conservativetribune.com/liberal-magazine-republicans-can-impeach-obama-if-they-take-the-senate/  text=''
+      • score=0.581  url=https://twitter.com/home?status=%E3%83%8C%E3%81%91%E3%82%8B%EF%BC%81%E3%80%90%E3%82%B2%E3%82%A4%E3%80%91+http%3A%2F%2Fero-video.net%2Ft%2FrRfnPyv1MirpKouW+%E3%81%8A%E3%81%98%E3%81%95%E3%82%93%E3%81%A8%E7%86%9F%E5%A5%B3%E8%A3%85%E3%81%AESEX+%23ero+%23douga+%23agesage  text=''
+      • score=0.581  url=https://twitter.com/home?status=%E3%83%8C%E3%81%91%E3%82%8B%EF%BC%81%E3%80%90%E3%82%A2%E3%82%A4%E3%83%89%E3%83%AB%E3%80%91+http%3A%2F%2Fero-video.net%2Ft%2FoseIVXkJR6mC3BV9+%E7%88%86%E4%B9%B3%E5%A8%98%E3%81%8C%E3%81%82%E3%82%93%E3%81%AA%E3%83%A2%E3%83%8E%E3%82%92%E3%82%A2%E3%82%BD%E3%82%B3%E3%81%AB%E3%83%BB%E3%83%BB%E3%83%BB+%23ero+%23douga+%23agesage  text=''
+      • score=0.771  url=https://eksisozluk.com/?q=aziz%20y%c4%b1ld%c4%b1r%c4%b1m&nr=true&rf=aziz%20yildirim  text=''
+      • score=0.652  url=http://mirtesen.ru/url?e=simple_click&blog_post_id=43491085942&url=http%3A%2F%2Fplaneta-woman.ru%2Fblog%2F43491085942%2FSladkaya-tvorozhnaya-zapekanka-bez-sahara  text=''
+  train=Phishing_Email.csv         test=CEAS_08.csv                AUC=0.9570
+    ↳ false positives on CEAS_08.csv (count=1117), showing up to 5:
+      • score=0.779  url=http://www.winzip.com/offer.cgi?wzm=2&auth=u0LBNGElUuh75K5VOWpK&crmk=2935849&oc=10⟨=EN&curr=USD  text='2/13/2008 Hello Ted, We just wanted to let you know that your WinZip Standard Single-User Upgrade Assurance expiration d'
+      • score=0.610  url=  text='Automated smoke report for 5.10.0 patch 32230 maldoror.bath.planit.group: Intel(R) Core(TM)2 CPU 6700 @ 2.66GHz(~2660 MH'
+      • score=0.615  url=http://www.conceptdraw.com/pg?id=news_january08_learn-cd  text='Dear Tony Meyer, Version 7.6 features important fixes to the program overall performance: - Faster start of the applica'
+      • score=0.566  url=  text='General | CNET News.com Alert                      Manage your alerts | Create alerts | Send us feedback        Firm'
+      • score=0.841  url=http://click.ecostemail.com/?ju=fe5e167576640d7c711d&ls=fdfc15707661047f701d727d&m=fefc1771766301&l=fec915767660017e&s=fe5d16747d670c757515&jb=ffcf14&t=  text='To view this email as a web page, go to the link below, or copy and paste it into your browser's address window. http://'
+  train=Phishing_Email.csv         test=malicious_phish.csv        AUC=0.7456
+    ↳ false positives on malicious_phish.csv (count=1986), showing up to 5:
+      • score=0.660  url=http://pornsharing.com/sexy-bodied-hottie-gianna-nicole-giving-gloryhole-blowjob_v77963  text=''
+      • score=0.613  url=http://tinnhanh360.net/sau-su-co--android-te-bay-apple-google-dong-cua-cong-cu-chinh-sua-maps.html  text=''
+      • score=0.621  url=http://allegro.pl/show_item.php?item=5337342210&sh_dwh_token=d0b6dd74a8394345128e20d296cb1c5e  text=''
+      • score=0.665  url=http://flirchi.com/touch?t=How+to+block+a+user+%28add+to+your+%22blacklist%22%29%3F  text=''
+      • score=0.512  url=http://conservativetribune.com/liberal-magazine-republicans-can-impeach-obama-if-they-take-the-senate/  text=''
+  train=malicious_phish.csv        test=CEAS_08.csv                AUC=0.5312
+    ↳ false positives on CEAS_08.csv (count=14708), showing up to 5:
+      • score=0.996  url=http://mail.python.org/mailman/listinfo/python-3000  text='> The biggest concern I have is over whether the following works: >  >     for i, k in enumerate(d.keys()): >         if'
+      • score=1.000  url=https://sourceforge.net/tracker/index.php?func=detail&aid=1892791&group_id=199155&atid=968354  text='Hi Andrea,  the code in my first link was from the mercurial extension TortoiseHG. They found some issues that the icon'
+      • score=1.000  url=http://www.postfix.org/lists.html  text='On Wed, Feb 13, 2008 at 12:45:17PM -0700, bqkxb@roundsphere.com wrote:  > I have done a lot of research going through th'
+      • score=1.000  url=http://rosuda.org/JGR/down.shtml  text='Maura Edelweiss Monville pecked at the keyboard and wrote: > I'd like to install the R GUI for Linux (JGR) > Instruction'
+      • score=1.000  url=http://www.springeronline.com/).  text='(apologies for the previous unreadable message)  *************************  CALL FOR PAPERS  ***************'
+  train=malicious_phish.csv        test=Phishing_Email.csv         AUC=0.3999
+    ↳ false positives on Phishing_Email.csv (count=10899), showing up to 5:
+      • score=0.960  url=  text='re : background information vince : i will send to you later today the information you requested in electronic form ; in'
+      • score=0.960  url=  text='graduate research training program computational aspects of cognitive science nsf graduate research training program cor'
+      • score=0.960  url=  text='capital book to further the process of reaching the stated objectives of increasing enron america ' s velocity of capita'
+      • score=0.960  url=  text='enron / hpl actuals for 10 / 6 - 9 / 00 enron / hpl actuals friday , oct . 6 , 2000 teco tap 60 . 000 / enron , 15 . 625'
+      • score=0.960  url=  text='action required : attend west power trading staff meeting please make plans to attend a west power trading luncheon staf'

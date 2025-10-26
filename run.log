@@ -1,0 +1,109 @@
+/Users/tylergarriott/Desktop/two-layer-scam-protection/phish_guard_onefile.py:256: FutureWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
+  .apply(lambda g: g.sample(min(len(g), max_per_source), random_state=42))
+/Users/tylergarriott/Desktop/two-layer-scam-protection/phish_guard_onefile.py:256: FutureWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
+  .apply(lambda g: g.sample(min(len(g), max_per_source), random_state=42))
+/Users/tylergarriott/Desktop/two-layer-scam-protection/phish_guard_onefile.py:256: FutureWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
+  .apply(lambda g: g.sample(min(len(g), max_per_source), random_state=42))
+[ingest] loading...
+[ingest] CEAS_08.csv: +39153 rows (cols=['sender', 'receiver', 'date', 'subject', 'body', 'label', 'urls', 'raw_email']) [text_col='raw_email' present=True, url_col='urls' present=True, label_col='label' present=True, dropped_label=0, dropped_empty=0]
+[ingest] Phishing_Email.csv: +18646 rows (cols=['Unnamed: 0', 'Email Text', 'Email Type', 'raw_email']) [text_col='raw_email' present=True, url_col=None present=False, label_col='Email Type' present=True, dropped_label=2049, dropped_empty=3]
+[ingest] malicious_phish.csv: +60309 rows (cols=['url', 'type']) [text_col=None present=False, url_col='url' present=True, label_col='type' present=True, dropped_label=0, dropped_empty=461905]
+[ingest] total rows after dedupe: 110094
+[ingest] label counts: {0: 62665, 1: 47429}
+[ingest] by-source counts: {'malicious_phish.csv': 60288, 'CEAS_08.csv': 32897, 'Phishing_Email.csv': 16909}
+[ingest] % non-empty raw_email by source: {'CEAS_08.csv': 1.0, 'Phishing_Email.csv': 1.0, 'malicious_phish.csv': 0.0}
+[ingest] capped per-source rows at 30000 -> total: 76909
+[ingest] by-source after cap: {'CEAS_08.csv': 30000, 'malicious_phish.csv': 30000, 'Phishing_Email.csv': 16909}
+                                           raw_email  ...       source
+0  \n\n\nCNN Alerts: My Custom Alert\n\n\n\n\n\n\...  ...  CEAS_08.csv
+1  \nLove is like heaven, but it can hurt like he...  ...  CEAS_08.csv
+
+[2 rows x 4 columns]
+
+[A] GroupKFold by first host (5-fold)
+  AUCs: [0.9951, 0.9901, 0.9956, 0.9901, 0.991]  mean=0.9924
+
+[B] Random-label sanity (expect ~0.50 AUC)
+  Shuffled-label AUC=0.4979
+
+[C] Ablation
+  url_only  AUC=0.9973
+  text_only AUC=0.5000
+
+[D] Cross-source matrix
+  train=CEAS_08.csv                test=Phishing_Email.csv         AUC=0.7146
+  train=CEAS_08.csv                test=malicious_phish.csv        AUC=0.7165
+  train=Phishing_Email.csv         test=CEAS_08.csv                AUC=0.8689
+  train=Phishing_Email.csv         test=malicious_phish.csv        AUC=0.6176
+  train=malicious_phish.csv        test=CEAS_08.csv                AUC=0.5407
+  train=malicious_phish.csv        test=Phishing_Email.csv         AUC=0.3986
+[ingest] loading...
+[ingest] CEAS_08.csv: +39153 rows (cols=['sender', 'receiver', 'date', 'subject', 'body', 'label', 'urls', 'raw_email']) [text_col='raw_email' present=True, url_col='urls' present=True, label_col='label' present=True, dropped_label=0, dropped_empty=0]
+[ingest] Phishing_Email.csv: +18646 rows (cols=['Unnamed: 0', 'Email Text', 'Email Type', 'raw_email']) [text_col='raw_email' present=True, url_col=None present=False, label_col='Email Type' present=True, dropped_label=2049, dropped_empty=3]
+[ingest] malicious_phish.csv: +60309 rows (cols=['url', 'type']) [text_col=None present=False, url_col='url' present=True, label_col='type' present=True, dropped_label=0, dropped_empty=461905]
+[ingest] total rows after dedupe: 110094
+[ingest] label counts: {0: 62665, 1: 47429}
+[ingest] by-source counts: {'malicious_phish.csv': 60288, 'CEAS_08.csv': 32897, 'Phishing_Email.csv': 16909}
+[ingest] % non-empty raw_email by source: {'CEAS_08.csv': 1.0, 'Phishing_Email.csv': 1.0, 'malicious_phish.csv': 0.0}
+[ingest] capped per-source rows at 30000 -> total: 76909
+[ingest] by-source after cap: {'CEAS_08.csv': 30000, 'malicious_phish.csv': 30000, 'Phishing_Email.csv': 16909}
+                                           raw_email  ...       source
+0  \n\n\nCNN Alerts: My Custom Alert\n\n\n\n\n\n\...  ...  CEAS_08.csv
+1  \nLove is like heaven, but it can hurt like he...  ...  CEAS_08.csv
+
+[2 rows x 4 columns]
+
+[A] GroupKFold by first host (5-fold)
+  AUCs: [0.9965, 0.9944, 0.9971, 0.9934, 0.9943]  mean=0.9951
+
+[B] Random-label sanity (expect ~0.50 AUC)
+  Shuffled-label AUC=0.5045
+
+[C] Ablation
+  url_only  AUC=0.9970
+  text_only AUC=0.5000
+
+[D] Cross-source matrix
+  train=CEAS_08.csv                test=Phishing_Email.csv         AUC=0.7881
+  train=CEAS_08.csv                test=malicious_phish.csv        AUC=0.7707
+  train=Phishing_Email.csv         test=CEAS_08.csv                AUC=0.9373
+  train=Phishing_Email.csv         test=malicious_phish.csv        AUC=0.7799
+  train=malicious_phish.csv        test=CEAS_08.csv                AUC=0.5312
+  train=malicious_phish.csv        test=Phishing_Email.csv         AUC=0.3999
+[ingest] loading...
+[ingest] CEAS_08.csv: +39153 rows (cols=['sender', 'receiver', 'date', 'subject', 'body', 'label', 'urls', 'raw_email']) [text_col='raw_email' present=True, url_col='urls' present=True, label_col='label' present=True, dropped_label=0, dropped_empty=0]
+[ingest] Phishing_Email.csv: +18646 rows (cols=['Unnamed: 0', 'Email Text', 'Email Type', 'raw_email']) [text_col='raw_email' present=True, url_col=None present=False, label_col='Email Type' present=True, dropped_label=2049, dropped_empty=3]
+[ingest] malicious_phish.csv: +60309 rows (cols=['url', 'type']) [text_col=None present=False, url_col='url' present=True, label_col='type' present=True, dropped_label=0, dropped_empty=461905]
+[ingest] total rows after dedupe: 110094
+[ingest] label counts: {0: 62665, 1: 47429}
+[ingest] by-source counts: {'malicious_phish.csv': 60288, 'CEAS_08.csv': 32897, 'Phishing_Email.csv': 16909}
+[ingest] % non-empty raw_email by source: {'CEAS_08.csv': 1.0, 'Phishing_Email.csv': 1.0, 'malicious_phish.csv': 0.0}
+[ingest] capped per-source rows at 30000 -> total: 76909
+[ingest] by-source after cap: {'CEAS_08.csv': 30000, 'malicious_phish.csv': 30000, 'Phishing_Email.csv': 16909}
+                                           raw_email  ...       source
+0  \n\n\nCNN Alerts: My Custom Alert\n\n\n\n\n\n\...  ...  CEAS_08.csv
+1  \nLove is like heaven, but it can hurt like he...  ...  CEAS_08.csv
+
+[2 rows x 4 columns]
+
+[A] GroupKFold by first host (5-fold)
+  AUCs: [0.9978, 0.9924, 0.9975, 0.9947, 0.9959]  mean=0.9957
+
+[B] Random-label sanity (expect ~0.50 AUC)
+  Shuffled-label AUC=0.4940
+
+[C] Ablation
+  url_only  AUC=0.9970
+  text_only AUC=0.5000
+
+[D] Cross-source matrix
+  train=CEAS_08.csv                test=Phishing_Email.csv         AUC=0.8473
+  train=CEAS_08.csv                test=malicious_phish.csv        AUC=0.6000
+  train=Phishing_Email.csv         test=CEAS_08.csv                AUC=0.9570
+  train=Phishing_Email.csv         test=malicious_phish.csv        AUC=0.7456
+  train=malicious_phish.csv        test=CEAS_08.csv                AUC=0.5312
+  train=malicious_phish.csv        test=Phishing_Email.csv         AUC=0.3999
+
+
+
+
