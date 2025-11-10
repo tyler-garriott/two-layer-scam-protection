@@ -446,7 +446,7 @@ class Stage1Runtime:
         self.group_by: str = "host"  # 'host' | 'domain' | 'random'
         self.balance_sources: bool = False
 
-    def fit(self, df: pd.DataFrame, out_dir: Path | None = None, ignore_urls: bool = False, group_by: str = "host", balance_sources: bool = False, ablation: str = "both") -> float:
+    def fit(self, df: pd.DataFrame, out_dir: Path | None = None, ignore_urls: bool = False, group_by: str = "host", balance_sources: bool = False, ablation: str = "both", do_loso: bool = True) -> float:
         self.ignore_urls = ignore_urls
         self.group_by = group_by
         self.balance_sources = balance_sources
@@ -558,75 +558,78 @@ class Stage1Runtime:
             print("[train] Note: too few samples for a test split; trained on all data.")
 
         # ===== Leave-One-Source-Out (LOSO) evaluation to detect overfitting/memorization =====
-        try:
-            sources = df["source"].astype(str).values if "source" in df.columns else None
-        except Exception:
-            sources = None
-        if sources is not None and len(np.unique(sources)) >= 2:
-            print("[eval] LOSO (leave-one-source-out) AUCs:")
-            loso_aucs = []
-            unique_sources = sorted(np.unique(sources).tolist())
-            feats_all = feats  # list of dicts built above
-            for src in unique_sources:
-                te_idx = np.where(sources == src)[0]
-                tr_idx = np.where(sources != src)[0]
-                if len(te_idx) < 10 or len(tr_idx) < 10:
-                    print(f"  {src}: skipped (insufficient samples: n_te={len(te_idx)}, n_tr={len(tr_idx)})")
-                    continue
-                # Dict features
-                dv_fold = DictVectorizer(sparse=False)
-                feats_tr = [feats_all[i] for i in tr_idx]
-                feats_te = [feats_all[i] for i in te_idx]
-                X_tr_dict = dv_fold.fit_transform(feats_tr)
-                X_te_dict = dv_fold.transform(feats_te)
+        if do_loso:
+            try:
+                sources = df["source"].astype(str).values if "source" in df.columns else None
+            except Exception:
+                sources = None
+            if sources is not None and len(np.unique(sources)) >= 2:
+                print("[eval] LOSO (leave-one-source-out) AUCs:")
+                loso_aucs = []
+                unique_sources = sorted(np.unique(sources).tolist())
+                feats_all = feats  # list of dicts built above
+                for src in unique_sources:
+                    te_idx = np.where(sources == src)[0]
+                    tr_idx = np.where(sources != src)[0]
+                    if len(te_idx) < 10 or len(tr_idx) < 10:
+                        print(f"  {src}: skipped (insufficient samples: n_te={len(te_idx)}, n_tr={len(tr_idx)})")
+                        continue
+                    # Dict features
+                    dv_fold = DictVectorizer(sparse=False)
+                    feats_tr = [feats_all[i] for i in tr_idx]
+                    feats_te = [feats_all[i] for i in te_idx]
+                    X_tr_dict = dv_fold.fit_transform(feats_tr)
+                    X_te_dict = dv_fold.transform(feats_te)
 
-                # Text features, robust to empty/stopword-only
-                texts_tr = (df["raw_email"].iloc[tr_idx] if ablation in ("both","text_only") else pd.Series([""]*len(tr_idx), index=tr_idx)).fillna("").astype(str).values
-                texts_te = (df["raw_email"].iloc[te_idx] if ablation in ("both","text_only") else pd.Series([""]*len(te_idx), index=te_idx)).fillna("").astype(str).values
-                from scipy.sparse import hstack, csr_matrix
-                if not any(t.strip() for t in texts_tr):
-                    tfidf_fold = None
-                    X_tr_txt = csr_matrix((len(texts_tr), 0))
-                    X_te_txt = csr_matrix((len(texts_te), 0))
-                else:
-                    try:
-                        tfidf_fold = TfidfVectorizer(max_features=2000, analyzer="char_wb", ngram_range=(3,5))
-                        X_tr_txt = tfidf_fold.fit_transform(texts_tr)
-                        X_te_txt = tfidf_fold.transform(texts_te)
-                    except ValueError:
+                    # Text features, robust to empty/stopword-only
+                    texts_tr = (df["raw_email"].iloc[tr_idx] if ablation in ("both","text_only") else pd.Series([""]*len(tr_idx), index=tr_idx)).fillna("").astype(str).values
+                    texts_te = (df["raw_email"].iloc[te_idx] if ablation in ("both","text_only") else pd.Series([""]*len(te_idx), index=te_idx)).fillna("").astype(str).values
+                    from scipy.sparse import hstack, csr_matrix
+                    if not any(t.strip() for t in texts_tr):
                         tfidf_fold = None
                         X_tr_txt = csr_matrix((len(texts_tr), 0))
                         X_te_txt = csr_matrix((len(texts_te), 0))
-                X_tr_fold = hstack([X_tr_dict, X_tr_txt]).tocsr()
-                X_te_fold = hstack([X_te_dict, X_te_txt]).tocsr()
+                    else:
+                        try:
+                            tfidf_fold = TfidfVectorizer(max_features=2000, analyzer="char_wb", ngram_range=(3,5))
+                            X_tr_txt = tfidf_fold.fit_transform(texts_tr)
+                            X_te_txt = tfidf_fold.transform(texts_te)
+                        except ValueError:
+                            tfidf_fold = None
+                            X_tr_txt = csr_matrix((len(texts_tr), 0))
+                            X_te_txt = csr_matrix((len(texts_te), 0))
+                    X_tr_fold = hstack([X_tr_dict, X_tr_txt]).tocsr()
+                    X_te_fold = hstack([X_te_dict, X_te_txt]).tocsr()
 
-                y_tr_fold = y[tr_idx]
-                y_te_fold = y[te_idx]
-                # balance by observed skew in the training fold
-                pos_fold = max(int((y_tr_fold == 1).sum()), 1)
-                neg_fold = max(int((y_tr_fold == 0).sum()), 1)
-                spw_fold = neg_fold / pos_fold
-                clf_fold = XGBClassifier(
-                    objective="binary:logistic",
-                    eval_metric="auc",
-                    n_estimators=200,
-                    max_depth=4,
-                    learning_rate=0.1,
-                    subsample=0.8,
-                    colsample_bytree=0.8,
-                    reg_lambda=1.0,
-                    n_jobs=4,
-                    random_state=42,
-                    scale_pos_weight=spw_fold,
-                )
-                clf_fold.fit(X_tr_fold, y_tr_fold)
-                proba_fold = clf_fold.predict_proba(X_te_fold)[:, 1]
-                auc_fold = roc_auc_score(y_te_fold, proba_fold)
-                loso_aucs.append((src, auc_fold, len(te_idx)))
-                print(f"  {src}: AUC={auc_fold:.4f} (n_te={len(te_idx)})")
-            if loso_aucs:
-                wavg_auc = np.average([a for (_, a, n) in loso_aucs], weights=[n for (_, a, n) in loso_aucs])
-                print(f"[eval] LOSO weighted AUC: {wavg_auc:.4f}")
+                    y_tr_fold = y[tr_idx]
+                    y_te_fold = y[te_idx]
+                    # balance by observed skew in the training fold
+                    pos_fold = max(int((y_tr_fold == 1).sum()), 1)
+                    neg_fold = max(int((y_tr_fold == 0).sum()), 1)
+                    spw_fold = neg_fold / pos_fold
+                    clf_fold = XGBClassifier(
+                        objective="binary:logistic",
+                        eval_metric="auc",
+                        n_estimators=200,
+                        max_depth=4,
+                        learning_rate=0.1,
+                        subsample=0.8,
+                        colsample_bytree=0.8,
+                        reg_lambda=1.0,
+                        n_jobs=4,
+                        random_state=42,
+                        scale_pos_weight=spw_fold,
+                    )
+                    clf_fold.fit(X_tr_fold, y_tr_fold)
+                    proba_fold = clf_fold.predict_proba(X_te_fold)[:, 1]
+                    auc_fold = roc_auc_score(y_te_fold, proba_fold)
+                    loso_aucs.append((src, auc_fold, len(te_idx)))
+                    print(f"  {src}: AUC={auc_fold:.4f} (n_te={len(te_idx)})")
+                if loso_aucs:
+                    wavg_auc = np.average([a for (_, a, n) in loso_aucs], weights=[n for (_, a, n) in loso_aucs])
+                    print(f"[eval] LOSO weighted AUC: {wavg_auc:.4f}")
+        else:
+            print("[eval] LOSO disabled (use --no-loso to enable speed mode)")
 
         # Persist in-memory
         self.dv = dv
@@ -689,21 +692,45 @@ def make_app(runtime: Stage1Runtime) -> FastAPI:
     ignore_urls = runtime.ignore_urls
 
     def bucketize(score: float) -> str:
-        if score < 0.40: return "benign"
-        if score < 0.70: return "suspicious"
-        return "high-risk"
+        if score < 0.20: return "benign"       # very low threshold for green
+        if score < 0.50: return "suspicious"   # gray band widened
+        return "high-risk"                     # treat as phishing in tests
 
     @app.post("/scan-email")
     async def scan_email(req: ScanEmailRequest) -> Stage1Result:
         feats = extract_basic_features(raw_email=req.raw_email, urls=req.urls, ignore_urls=ignore_urls)
         score, factors = runtime.predict(feats, raw_email=req.raw_email)
-
-        # Post-processing guardrail: if URLs are on safe domains and there's no
-        # login/urgency signal, dampen the score to reduce false positives.
-        if feats.get("frac_safe_domain", 0.0) >= 0.5 and feats.get("frac_login_words", 0.0) == 0.0 and feats.get("urgency_hits", 0) == 0:
-            score *= 0.4  # dampen
-
         return Stage1Result(score=score, bucket=bucketize(score), top_factors=factors)
+
+    @app.post("/scan-stage1")
+    async def scan_stage1(req: ScanEmailRequest):
+        feats = extract_basic_features(raw_email=req.raw_email, urls=req.urls, ignore_urls=ignore_urls)
+        score, factors = runtime.predict(feats, raw_email=req.raw_email)
+
+        # Guardrail for testing: if URLs are mostly HTTPS on major safe domains and
+        # there are no login/urgency/IP/suspicious-ext cues, treat as benign.
+        safe_guard = (
+            feats.get("frac_safe_domain", 0.0) >= 0.5 and
+            feats.get("frac_https", 0.0) >= 0.8 and
+            feats.get("frac_login_words", 0.0) == 0 and
+            feats.get("urgency_hits", 0) == 0 and
+            feats.get("frac_ip_host", 0.0) == 0 and
+            feats.get("frac_suspicious_ext", 0.0) == 0
+        )
+        if safe_guard:
+            return {
+                "verdict": "benign",
+                "score": float(score) * 0.2,
+                "factors": factors + ["safe_domain_guard"],
+                "actions": []
+            }
+
+        verdict = ("benign" if score < 0.20 else "suspicious" if score < 0.50 else "phishing")
+        return {"verdict": verdict, "score": float(score), "factors": factors, "actions": []}
+
+    @app.get("/whoami")
+    async def whoami():
+        return {"app": "phish-guard-onefile", "guardrail": True}
 
     @app.post("/explain-email")
     async def explain_email(req: ExplainEmailRequest) -> ExplainEmailResponse:
@@ -746,7 +773,10 @@ def main():
     ap.add_argument("--sources", default="", help="Comma-separated substrings of filenames to include (e.g., ceas,phishing)")
     ap.add_argument("--group-by", choices=["host","domain","random"], default="host", help="How to group for the train/test split")
     ap.add_argument("--balance-sources", action="store_true", help="Reweight samples inversely to their source frequency")
+    ap.add_argument("--use-only-malicious", action="store_true",
+                    help="If set, only ingest files matching 'malicious_phish' (convenience for quick URL-only testing)")
     ap.add_argument("--ablation", choices=["both","url_only","text_only"], default="both", help="Train with both, URLs only, or text only")
+    ap.add_argument("--no-loso", action="store_true", help="Disable leave-one-source-out evaluation for speed")
     args = ap.parse_args()
 
     drop_labels = set([s.strip().lower() for s in args.drop_labels.split(",") if s.strip()])
@@ -755,17 +785,21 @@ def main():
         raise SystemExit(f"--data folder not found: {folder}")
 
     print("[ingest] scanning CSVs...")
-    include = set([s.strip().lower() for s in args.sources.split(",") if s.strip()]) or None
+    # If requested, force using only the malicious_phish dataset for quick testing
+    if args.use_only_malicious:
+        include = {"malicious_phish"}
+    else:
+        include = set([s.strip().lower() for s in args.sources.split(",") if s.strip()]) or None
     df = ingest_folder(folder, args.text_col, args.url_col, args.label_col, drop_labels, include_sources=include, max_per_source=args.max_per_source)
     counts = df["label"].value_counts(dropna=False).to_dict()
     print(f"[ingest] rows: {len(df)}, label_counts: {counts}")
 
     print("[train] training baseline model...")
     runtime = Stage1Runtime()
-    auc = runtime.fit(df, out_dir=Path(args.out), ignore_urls=args.no_urls, group_by=args.group_by, balance_sources=args.balance_sources, ablation=args.ablation)
+    auc = runtime.fit(df, out_dir=Path(args.out), ignore_urls=args.no_urls, group_by=args.group_by, balance_sources=args.balance_sources, ablation=args.ablation, do_loso=not args.no_loso)
     print(f"[train] done. AUC={auc:.4f}")
 
-    print(f"[serve] starting API on http://{args.host}:{args.port}")
+    print(f"[serve] starting API on http://{args.host}:{args.port}  (endpoints: /scan-email, /scan-stage1, /explain-email, /health)")
     app = make_app(runtime)
     uvicorn.run(app, host=args.host, port=args.port)
 
