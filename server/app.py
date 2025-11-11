@@ -1,12 +1,35 @@
 # server/app.py
 import json
+import os, re
 
 import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from typing import List, Dict
 
 OLLAMA = "http://localhost:11434"
+
+KNOWN_DOMAINS = {
+    "joinhandshake.com",
+    "mail.joinhandshake.com",
+    "google.com", "gmail.com",
+    "microsoft.com", "outlook.com",
+    "amazon.com", "apple.com",
+    "utk.edu", "tennessee.edu", "listserv.utk.edu",
+    "qualtrics.com", "utk.co1.qualtrics.com"
+}
+
+def _is_whitelisted_host(h: str) -> bool:
+    if not h:
+        return False
+    h = h.lower()
+    for d in KNOWN_DOMAINS:
+        d = d.lower()
+        if h == d or h.endswith("." + d) or h.endswith(d):
+            return True
+    return False
 
 app = FastAPI(title="Phish-Guard Shim")
 app.add_middleware(
@@ -16,25 +39,62 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Lightweight email body sanitizer to prevent huge prompts/timeouts ---
+def sanitize_text(text: str) -> str:
+    if not text:
+        return ""
+    # Remove raw URLs; we already send URL list separately
+    t = re.sub(r'https?://\S+', ' ', text)
+    # Drop noisy repetitive lines like "Click to view" blocks (Canvas digests, etc.)
+    t = re.sub(r'(?mi)^[ \t]*click to view.*$', '', t)
+    # Collapse whitespace
+    t = re.sub(r'\s+', ' ', t).strip()
+    # Cap to a safe size for local models
+    return t[:6000]
 
-class ScanReq(BaseModel):
-    email_text: str
-    subject: str = ""
-    urls: list[str] = []
-    headers: dict = {}
-
+# --- Robust JSON extractor (handles code fences / extra prose) ---
+def extract_json_block(s: str) -> str:
+    if not s:
+        return ""
+    # Fast path: looks like pure JSON
+    st = s.strip()
+    if st.startswith("{") and st.endswith("}"):
+        return st
+    # Remove markdown code fences if present
+    st = re.sub(r"^```(?:json)?\s*|```$", "", st.strip(), flags=re.IGNORECASE | re.MULTILINE)
+    # Find first balanced {...} block
+    depth = 0
+    start = -1
+    for i, ch in enumerate(st):
+        if ch == '{':
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == '}':
+            if depth > 0:
+                depth -= 1
+                if depth == 0 and start != -1:
+                    return st[start:i+1]
+    return ""
 
 def call_llm(email_text: str, subject: str, urls: list[str], headers: dict):
     sys_msg = (
-        "You output one JSON object with exactly these keys and types: "
-        '{"score": number 0..1, "verdict": "benign"|"suspicious"|"phishing", '
-        '"factors": [string], "actions": [string]}. No prose. Do not invent other keys.'
+        "You are an email safety classifier. Return ONLY one JSON object with keys: "
+        '{"verdict":"benign"|"suspicious"|"phishing","score":number,"factors":[string],"actions":[string]}. '
+        "Scoring: benign 0.05–0.25, suspicious 0.35–0.65, phishing 0.75–0.95. "
+        "Consider sender cues, credential requests, urgency, link targets, and impersonation. "
+        "If evidence is weak, prefer suspicious over phishing."
     )
-    user_example = "Example:\nSUBJECT: Account locked\nBODY: Your Apple ID is locked. Verify at http://tiny.cc/login"
-    asst_example = '{ "score": 0.93, "verdict": "phishing", "factors": ["shortened_url","credential_request"], "actions": ["report","do not click"] }'
-    user_task = f"Analyze this email:\nSUBJECT: {subject}\nBODY: {email_text}\nURLS: {json.dumps(urls)}"
+    
+    # sanitize and cap to avoid oversized prompts/timeouts
+    email_text = sanitize_text(email_text)
+    subject = (subject or "")[:512]
+    
+    user_task = (
+        f"SUBJECT: {subject}\nBODY:\n{email_text}\nURLS: {json.dumps(urls)}\n"
+        "Return one compact JSON line."
+    )
 
-    # primary: chat with one-shot example
     r = requests.post(
         f"{OLLAMA}/api/chat",
         json={
@@ -42,43 +102,100 @@ def call_llm(email_text: str, subject: str, urls: list[str], headers: dict):
             "format": "json",
             "messages": [
                 {"role": "system", "content": sys_msg},
-                {"role": "user", "content": user_example},
-                {"role": "assistant", "content": asst_example},
                 {"role": "user", "content": user_task},
             ],
             "stream": False,
-            "options": {"temperature": 0},
+            "options": {"temperature": 0.2, "top_p": 0.9},
         },
-        timeout=20,
-    ).json()
-    data = r.get("message", {}).get("content") or r.get("response") or "{}"
-    if data.strip() != "{}":
-        return json.loads(data)
-
-    # fallback: seeded JSON completion
-    seeded_prompt = (
-        "Complete this JSON object only. No extra text:\n"
-        '{\n  "score": 0.0,\n  "verdict": "",\n  "factors": [],\n  "actions": []\n}\n'
-        f"EMAIL:\nSUBJECT: {subject}\nBODY: {email_text}\nURLS: {json.dumps(urls)}"
+        # timeout=45,
     )
-    r2 = requests.post(
-        f"{OLLAMA}/api/generate",
-        json={
-            "model": "phish-guard",
-            "format": "json",
-            "stream": False,
-            "options": {"temperature": 0},
-            "system": sys_msg,
-            "prompt": seeded_prompt,
-        },
-        timeout=20,
-    ).json()
-    return json.loads(r2.get("response", "{}"))
+    r.raise_for_status()
+    payload = r.json()
+    raw = payload.get("message", {}).get("content") or payload.get("response") or ""
+    data = extract_json_block(raw)
+    try:
+        out = json.loads(data) if data else {}
+    except Exception:
+        out = {}
+
+    verdict = (out.get("verdict") or "suspicious").lower()
+    if verdict not in {"benign", "suspicious", "phishing"}:
+        verdict = "suspicious"
+    score = float(out.get("score", 0.5))
+    factors = out.get("factors", [])
+    actions = out.get("actions", [])
+
+    if verdict == "phishing":
+        score = max(min(score, 0.90), 0.75)
+    elif verdict == "benign":
+        score = max(min(score, 0.20), 0.05)
+    else:
+        score = max(min(score, 0.60), 0.35)
+
+    return {"verdict": verdict, "score": score, "factors": factors, "actions": actions}
+
+
+class ScanReq(BaseModel):
+    subject: str = ""
+    email_text: str = Field(default="", alias="body")
+    urls: List[str] = []
+    headers: Dict[str, str] = {}
+
+    class Config:
+        populate_by_name = True
+
+
+def _hostname(url: str) -> str:
+    try:
+        from urllib.parse import urlparse
+        return urlparse(url).hostname or ""
+    except Exception:
+        return ""
 
 
 @app.post("/scan")
 def scan(req: ScanReq):
-    out = call_llm(req.email_text, req.subject, req.urls, req.headers)
+        # normalize request
+    if req.email_text is None:
+        req.email_text = ""
+    if req.subject is None:
+        req.subject = ""
+    # keep at most first 15 URLs to avoid huge payloads
+    req.urls = list(req.urls or [])[:15]
+
+    text_all = (req.subject or "") + "\n" + (req.email_text or "")
+    has_login_words = bool(re.search(r"\b(login|verify|password|reset|confirm|update\s+account|credential|sign\s*in)\b", text_all, re.I))
+    mentions_survey = bool(re.search(r"\b(survey|focus\s*group|qualtrics|questionnaire)\b", text_all, re.I))
+
+    hosts = [(_hostname(u) or "").lower() for u in req.urls]
+    all_whitelisted = len(hosts) > 0 and all(_is_whitelisted_host(h) for h in hosts)
+
+    # Fast-path: if there are no links and no credential language, skip LLM and return benign
+    if len(req.urls) == 0 and not has_login_words:
+        out = {"verdict": "benign", "score": 0.15, "factors": ["no links"], "actions": []}
+    else:
+        out = call_llm(req.email_text, req.subject, req.urls, req.headers)
+
+    
+    if out.get("verdict") == "phishing" and all_whitelisted and not has_login_words:
+        # downgrade to suspicious if all links are whitelisted domains and no login words
+        out["verdict"] = "suspicious"
+        out["score"] = min(float(out.get("score", 0.8)), 0.55)
+        out.setdefault("factors", []).append("all_whitelisted_links")
+    elif all_whitelisted and not has_login_words:
+        # boost benign if whitelisted and no login words
+        out["verdict"] = "benign"
+        out["score"] = max(float(out.get("score", 0.4)), 0.20)
+        out.setdefault("factors", []).append("all_whitelisted_links")
+    elif any((_hostname(u).endswith("utk.edu") or _hostname(u).endswith("tennessee.edu") or _hostname(u).endswith("qualtrics.com") or _hostname(u).endswith("utk.co1.qualtrics.com")) for u in req.urls) and mentions_survey and not has_login_words:
+        if out.get("verdict") == "phishing":
+            out["verdict"] = "suspicious"
+            out["score"] = min(float(out.get("score", 0.8)), 0.55)
+        else:
+            out["verdict"] = "benign"
+            out["score"] = min(float(out.get("score", 0.4)), 0.20)
+        out.setdefault("factors", []).append("edu survey link")
+
     # minimal shape guard
     return {
         "verdict": out.get("verdict", "suspicious"),

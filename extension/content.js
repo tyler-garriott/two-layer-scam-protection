@@ -87,12 +87,13 @@ function injectButtonOnce(container) {
             console.warn("PG_SCAN timeout");
             resolve(null);
           }
-        }, 12000);
+        }, 300000);
 
         chrome.runtime.sendMessage({ type: "PG_SCAN", payload }, (resp) => {
           clearTimeout(t);
           if (settled) return;
           settled = true;
+          // console.log(payload);
           if (chrome.runtime.lastError) {
             console.error(
               "PG_SCAN runtime error:",
