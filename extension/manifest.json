@@ -3,7 +3,7 @@
   "name": "Phish-Guard for Gmail",
   "version": "0.1.0",
   "description": "One button to scan the open Gmail message.",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": [
     "https://mail.google.com/*",
     "http://localhost:8000/*",
@@ -26,6 +26,7 @@
   },
 
   "action": {
-    "default_title": "Phish-Guard"
+    "default_title": "Phish-Guard",
+    "default_popup": "popup.html"
   }
 }

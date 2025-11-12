@@ -10,6 +10,23 @@ function getThreadId() {
   return m ? m[1] : u.searchParams.get("th") || hash || location.pathname;
 }
 
+function extractSenderEmail() {
+  // Try common Gmail DOM selectors to get the sender email or display name
+  let el = document.querySelector('span.gD') || document.querySelector('a.gD') || document.querySelector('span[email]');
+  if (el) {
+    const emailAttr = el.getAttribute('email') || el.getAttribute('data-hovercard-id');
+    if (emailAttr) return emailAttr.trim().slice(0, 256);
+    if (el.textContent) return el.textContent.trim().slice(0, 256);
+  }
+  // Fallback: aria-label like "From: Name <email@domain>"
+  el = document.querySelector('[aria-label^="From:"]');
+  if (el) {
+    const a = el.getAttribute('aria-label') || el.textContent || '';
+    return a.replace(/^From:\s*/i, '').trim().slice(0, 256);
+  }
+  return '';
+}
+
 function extractOpenEmail() {
   const subject = document.querySelector("h2.hP")?.innerText || "";
 
@@ -76,7 +93,7 @@ function injectButtonOnce(container) {
     const old = btn.textContent;
     btn.textContent = "Scanning…";
     try {
-      const payload = extractOpenEmail();
+      const payload = Object.assign(extractOpenEmail(), { sender: extractSenderEmail() });
 
       // Use callback style and guard for runtime.lastError + timeout
       const verdict = await new Promise((resolve) => {

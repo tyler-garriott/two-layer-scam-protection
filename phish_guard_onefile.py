@@ -40,6 +40,7 @@ import joblib
 
 # API bits
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 
@@ -689,6 +690,14 @@ class ExplainEmailResponse(BaseModel):
 
 def make_app(runtime: Stage1Runtime) -> FastAPI:
     app = FastAPI(title="Phish Guard — Onefile")
+    # Enable CORS for development and extension access
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # For development; restrict in production
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     ignore_urls = runtime.ignore_urls
 
     def bucketize(score: float) -> str:

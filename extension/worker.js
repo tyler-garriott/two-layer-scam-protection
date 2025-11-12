@@ -10,13 +10,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         email_text: (p.body || "").slice(0, 10000),
         subject: (p.subject || "").slice(0, 512),
         urls: Array.isArray(p.urls) ? p.urls.slice(0, 15) : [],
+        sender: (p.sender || "").slice(0, 256),
       };
 
       console.log("PG_SCAN start", safePayload);
+      if (safePayload.sender) console.log("PG_SCAN sender", safePayload.sender);
       controller = new AbortController();
       to = setTimeout(() => {
         try { controller && controller.abort(); } catch (_) {}
-      }, 35000); // 35s timeout
+      }, 350000); // 35s timeout
 
       const res = await fetch("http://127.0.0.1:8000/scan", {
         method: "POST",

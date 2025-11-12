@@ -77,7 +77,7 @@ def extract_json_block(s: str) -> str:
                     return st[start:i+1]
     return ""
 
-def call_llm(email_text: str, subject: str, urls: list[str], headers: dict):
+def call_llm(email_text: str, subject: str, urls: list[str], headers: dict, sender: str = ""):
     sys_msg = (
         "You are an email safety classifier. Return ONLY one JSON object with keys: "
         '{"verdict":"benign"|"suspicious"|"phishing","score":number,"factors":[string],"actions":[string]}. '
@@ -89,8 +89,11 @@ def call_llm(email_text: str, subject: str, urls: list[str], headers: dict):
     # sanitize and cap to avoid oversized prompts/timeouts
     email_text = sanitize_text(email_text)
     subject = (subject or "")[:512]
+    sender = (sender or "")[:256]
+    sender_line = f"SENDER: {sender}\n" if sender else ""
     
     user_task = (
+        sender_line +
         f"SUBJECT: {subject}\nBODY:\n{email_text}\nURLS: {json.dumps(urls)}\n"
         "Return one compact JSON line."
     )
@@ -140,6 +143,7 @@ class ScanReq(BaseModel):
     email_text: str = Field(default="", alias="body")
     urls: List[str] = []
     headers: Dict[str, str] = {}
+    sender: str = ""
 
     class Config:
         populate_by_name = True
@@ -160,6 +164,9 @@ def scan(req: ScanReq):
         req.email_text = ""
     if req.subject is None:
         req.subject = ""
+    if getattr(req, "sender", None) is None:
+        req.sender = ""
+    req.sender = (req.sender or "")[:256]
     # keep at most first 15 URLs to avoid huge payloads
     req.urls = list(req.urls or [])[:15]
 
@@ -170,11 +177,27 @@ def scan(req: ScanReq):
     hosts = [(_hostname(u) or "").lower() for u in req.urls]
     all_whitelisted = len(hosts) > 0 and all(_is_whitelisted_host(h) for h in hosts)
 
+    # Sender-domain heuristic: if most links share the sender's domain and there are no login/credential words,
+    # treat as benign (marketing/newsletters) rather than phishing.
+    sender_domain = ""
+    if getattr(req, "sender", None):
+        m = re.search(r"@([A-Za-z0-9.-]+)$", req.sender or "")
+        if m:
+            sender_domain = m.group(1).lower()
+
+    same_brand = False
+    if sender_domain and hosts:
+        match_count = sum(1 for h in hosts if h.endswith(sender_domain))
+        same_brand = match_count >= max(1, len(hosts) // 2)
+
     # Fast-path: if there are no links and no credential language, skip LLM and return benign
     if len(req.urls) == 0 and not has_login_words:
         out = {"verdict": "benign", "score": 0.15, "factors": ["no links"], "actions": []}
+    # If most links share the sender's domain and there are no login words, assume benign marketing/newsletter
+    elif same_brand and not has_login_words:
+        out = {"verdict": "benign", "score": 0.20, "factors": ["sender domain matches link domains"], "actions": []}
     else:
-        out = call_llm(req.email_text, req.subject, req.urls, req.headers)
+        out = call_llm(req.email_text, req.subject, req.urls, req.headers, req.sender)
 
     
     if out.get("verdict") == "phishing" and all_whitelisted and not has_login_words:
@@ -195,6 +218,12 @@ def scan(req: ScanReq):
             out["verdict"] = "benign"
             out["score"] = min(float(out.get("score", 0.4)), 0.20)
         out.setdefault("factors", []).append("edu survey link")
+
+    # Downgrade overly harsh verdicts when sender domain aligns with majority of links and no login words
+    if out.get("verdict") == "phishing" and same_brand and not has_login_words:
+        out["verdict"] = "suspicious"
+        out["score"] = min(float(out.get("score", 0.8)), 0.55)
+        out.setdefault("factors", []).append("sender-link domain alignment")
 
     # minimal shape guard
     return {

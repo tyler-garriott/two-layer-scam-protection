@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Phish Guard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { font: 14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    body { margin: 0; background: #1e1b18; color: #f3f3f3; }
+    .wrap { width: 320px; padding: 14px; }
+    h1 { font-size: 16px; margin: 0 0 10px; }
+    .field { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+    select, input[type="url"] {
+      padding: 8px; border-radius: 6px; border: 1px solid #444; background: #2a2623; color: #f3f3f3;
+    }
+    button {
+      width: 100%; padding: 10px; margin-top: 8px;
+      border: 0; border-radius: 8px; background: #7c5cff; color: #fff; cursor: pointer;
+    }
+    button:hover { filter: brightness(1.05); }
+    .msg { margin-top: 8px; min-height: 1.2em; color: #a3ffa3; }
+    .msg.error { color: #ff9aa3; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Phish Guard</h1>
+
+    <label class="field">
+      <span>Action</span>
+      <select id="action">
+        <option value="scan">Scan URL</option>
+        <option value="whitelist">Whitelist URL</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>URL</span>
+      <input id="urlInput" type="url" placeholder="https://example.com" autocomplete="off">
+    </label>
+
+    <button id="goBtn">Submit</button>
+    <p id="msg" class="msg" aria-live="polite"></p>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
