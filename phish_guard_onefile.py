@@ -716,20 +716,20 @@ def make_app(runtime: Stage1Runtime) -> FastAPI:
         feats = extract_basic_features(raw_email=req.raw_email, urls=req.urls, ignore_urls=ignore_urls)
         score, factors = runtime.predict(feats, raw_email=req.raw_email)
 
-        # Guardrail for testing: if URLs are mostly HTTPS on major safe domains and
-        # there are no login/urgency/IP/suspicious-ext cues, treat as benign.
+        # Guardrail for well-known providers: if URLs are mostly HTTPS on major safe domains,
+        # with no obvious abuse cues (IP host or suspicious file extensions), treat as benign.
+        # Note: allow "login" paths on safe domains to avoid false positives on real portals.
         safe_guard = (
-            feats.get("frac_safe_domain", 0.0) >= 0.5 and
-            feats.get("frac_https", 0.0) >= 0.8 and
-            feats.get("frac_login_words", 0.0) == 0 and
-            feats.get("urgency_hits", 0) == 0 and
+            feats.get("frac_safe_domain", 0.0) >= 0.6 and
+            feats.get("frac_https", 0.0) >= 0.9 and
             feats.get("frac_ip_host", 0.0) == 0 and
             feats.get("frac_suspicious_ext", 0.0) == 0
         )
         if safe_guard:
+            # Strongly down-weight the score so the UI reflects low risk
             return {
                 "verdict": "benign",
-                "score": float(score) * 0.2,
+                "score": float(score) * 0.1,
                 "factors": factors + ["safe_domain_guard"],
                 "actions": []
             }
