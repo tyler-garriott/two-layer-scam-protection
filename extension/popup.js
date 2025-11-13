@@ -1,12 +1,10 @@
 const $ = (s) => document.querySelector(s);
-const actionEl = $("#action");
 const urlEl = $("#urlInput");
 const msgEl = $("#msg");
 const goBtn = $("#goBtn");
 
-// Restore last values
-chrome.storage.local.get(["pg_lastAction", "pg_lastUrl"], ({ pg_lastAction, pg_lastUrl }) => {
-  if (pg_lastAction) actionEl.value = pg_lastAction;
+// Restore last URL from storage, if any
+chrome.storage.local.get(["pg_lastUrl"], ({ pg_lastUrl }) => {
   if (pg_lastUrl && !urlEl.value) urlEl.value = pg_lastUrl;
 });
 
@@ -20,7 +18,6 @@ function isValidUrl(u) {
 }
 
 goBtn.addEventListener("click", async () => {
-  const action = actionEl.value;
   const url = urlEl.value.trim();
 
   if (!isValidUrl(url)) {
@@ -30,11 +27,12 @@ goBtn.addEventListener("click", async () => {
   }
 
   msgEl.classList.remove("error");
-  msgEl.textContent = "Saved.";
-  await chrome.storage.local.set({ pg_lastAction: action, pg_lastUrl: url });
+  msgEl.textContent = "Scanning...";
+
+  // Remember the last URL
+  await chrome.storage.local.set({ pg_lastUrl: url });
 
   // Call local Stage-1 FastAPI server on 8001
-  msgEl.textContent = "Scanning...";
   try {
     const res = await fetch("http://127.0.0.1:8001/scan-stage1", {
       method: "POST",
@@ -47,7 +45,9 @@ goBtn.addEventListener("click", async () => {
 
     if (data && typeof data.score === "number") {
       const pct = (data.score * 100).toFixed(1);
-      msgEl.textContent = data.verdict ? `Verdict: ${data.verdict} (${pct}%)` : `Score: ${pct}%`;
+      msgEl.textContent = data.verdict
+        ? `Verdict: ${data.verdict} (${pct}%)`
+        : `Score: ${pct}%`;
     } else {
       msgEl.textContent = JSON.stringify(data);
     }
