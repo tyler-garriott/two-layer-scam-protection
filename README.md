@@ -8,17 +8,18 @@ Unzip in directory:
 ## Command to install everything you need
 pip install pandas numpy scikit-learn xgboost fastapi uvicorn joblib
 
-## Live API
-python phish_guard_onefile.py --data data/raw \
-  --out artifacts \
-  --url-col url --label-col type --drop-labels "defacement,malware" \
-  --port 8000
+## ML Model Locally
+python3 phish_guard_onefile.py --data data/raw --use-only-malicious --out artifacts --port 8001 --host 0.0.0.0 --no-loso
 
-### Example Command for Live API
-curl -s -X POST http://127.0.0.1:8000/scan-email \
-  -H "Content-Type: application/json" \
-  -d '{"raw_email": "Suspicious login detected", "urls": ["http://phish-login.example.com"]}'
+## Use Modelfile to create llm with ollama
+ollama create phish-guard-stage2 -f ollama/Modelfile
 
-## For offline testing use:
-python offline.py
+## Run Ollama Server Locally
+uvicorn server.app:app --host 0.0.0.0 --port 8000 --reload
 
+## Steps to add the extension to chrome
+* Go to chrome://extension
+* On the top right there should be a developer mode toggle click it on
+* Click load unpacked
+* Select extension folder
+* The extension should now be working as long as the servers are running locally! Click it to see the ML model dropdown and go to gmail to scan an email!
